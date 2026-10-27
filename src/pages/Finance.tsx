@@ -1,4 +1,5 @@
 import { deliverFile } from "@/lib/fileDelivery";
+import { getFraisWeekStart } from "@/lib/fraisWeek";
 import { resolvePreviewUrl } from "@/components/documents/previewMedia";
 import { useState, useEffect, useMemo } from "react";
 import { clampDateToToday } from "@/lib/dateValidation";
@@ -217,14 +218,9 @@ const Finance = () => {
   // Navigation temporelle pour les frais
   const [selectedDate, setSelectedDate] = useState(new Date());
   // La semaine de frais va du samedi au vendredi
-  const [selectedWeekStart, setSelectedWeekStart] = useState(() => {
-    const now = new Date();
-    const dayOfWeek = now.getDay(); // 0 = dimanche, 6 = samedi
-    // Reculer jusqu'au samedi précédent (ou aujourd'hui si samedi)
-    const saturday = new Date(now);
-    saturday.setDate(now.getDate() - (dayOfWeek >= 6 ? dayOfWeek - 6 : dayOfWeek + 1));
-    return saturday;
-  });
+  const [selectedWeekStart, setSelectedWeekStart] = useState(() =>
+    getFraisWeekStart(new Date())
+  );
   
   // Period selection for chart/stats
   const [selectedPeriod, setSelectedPeriod] = useState<FraisPeriod>('mois');
@@ -263,11 +259,7 @@ const Finance = () => {
   const isCurrentMonth = selectedDate.getMonth() === new Date().getMonth() && 
                          selectedDate.getFullYear() === new Date().getFullYear();
   const isCurrentWeek = (() => {
-    const now = new Date();
-    const dayOfWeek = now.getDay();
-    // Calculer le samedi de la semaine courante (semaine samedi → vendredi)
-    const currentSaturday = new Date(now);
-    currentSaturday.setDate(now.getDate() - (dayOfWeek >= 6 ? dayOfWeek - 6 : dayOfWeek + 1));
+    const currentSaturday = getFraisWeekStart(new Date());
     currentSaturday.setHours(0, 0, 0, 0);
     const selectedSaturdayCopy = new Date(selectedWeekStart);
     selectedSaturdayCopy.setHours(0, 0, 0, 0);
