@@ -1,4 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { isVisitorUser } from "@/lib/visitorMode";
+import { startCalendarAutoSync } from "@/lib/calendarAutoSync";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Calendar, CheckCircle, AlertCircle } from "lucide-react";
 import { useGoogleCalendarSync } from "@/hooks/useGoogleCalendarSync";
@@ -16,10 +19,26 @@ interface GoogleCalendarSyncProps {
 export function GoogleCalendarSync({ onSyncComplete }: GoogleCalendarSyncProps) {
   const { syncing, lastSync, syncCalendar, checkGoogleConnection } = useGoogleCalendarSync();
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
+  const { user } = useAuth();
+  const completeRef = useRef(onSyncComplete);
+  completeRef.current = onSyncComplete;
 
   useEffect(() => {
-    checkGoogleConnection().then(setIsConnected);
-  }, [checkGoogleConnection]);
+    if (!user || isVisitorUser(user.id)) {
+      setIsConnected(false);
+      return;
+    }
+    let active = true;
+    const stop = startCalendarAutoSync(async () => {
+      const connected = await checkGoogleConnection();
+      if (!active) return;
+      setIsConnected(connected);
+      if (!connected) return;
+      const result = await syncCalendar({ daysAhead: 30, daysBefore: 7, silent: true });
+      if (active && result?.success) completeRef.current?.();
+    }, () => navigator.onLine && document.visibilityState === "visible", { window, document });
+    return () => { active = false; stop(); };
+  }, [user?.id, checkGoogleConnection, syncCalendar]);
 
   const handleSync = async () => {
     const result = await syncCalendar({ daysAhead: 30, daysBefore: 7 });
