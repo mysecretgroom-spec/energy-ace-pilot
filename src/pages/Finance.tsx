@@ -1,4 +1,5 @@
 import { deliverFile } from "@/lib/fileDelivery";
+import { getFraisWeekStart } from "@/lib/fraisWeek";
 import { resolvePreviewUrl } from "@/components/documents/previewMedia";
 import { useState, useEffect, useMemo } from "react";
 import { clampDateToToday } from "@/lib/dateValidation";
@@ -216,15 +217,10 @@ const Finance = () => {
   
   // Navigation temporelle pour les frais
   const [selectedDate, setSelectedDate] = useState(new Date());
-  // La semaine de frais va du dimanche au samedi (format israélien)
-  const [selectedWeekStart, setSelectedWeekStart] = useState(() => {
-    const now = new Date();
-    const dayOfWeek = now.getDay(); // 0 = dimanche, 6 = samedi
-    // Reculer jusqu'au dimanche précédent (ou aujourd'hui si dimanche)
-    const sunday = new Date(now);
-    sunday.setDate(now.getDate() - dayOfWeek);
-    return sunday;
-  });
+  // La semaine de frais va du samedi au vendredi
+  const [selectedWeekStart, setSelectedWeekStart] = useState(() =>
+    getFraisWeekStart(new Date())
+  );
   
   // Period selection for chart/stats
   const [selectedPeriod, setSelectedPeriod] = useState<FraisPeriod>('mois');
@@ -263,15 +259,11 @@ const Finance = () => {
   const isCurrentMonth = selectedDate.getMonth() === new Date().getMonth() && 
                          selectedDate.getFullYear() === new Date().getFullYear();
   const isCurrentWeek = (() => {
-    const now = new Date();
-    const dayOfWeek = now.getDay();
-    // Calculer le dimanche de la semaine courante (format israélien)
-    const currentSunday = new Date(now);
-    currentSunday.setDate(now.getDate() - dayOfWeek);
-    currentSunday.setHours(0, 0, 0, 0);
-    const selectedSundayCopy = new Date(selectedWeekStart);
-    selectedSundayCopy.setHours(0, 0, 0, 0);
-    return currentSunday.getTime() === selectedSundayCopy.getTime();
+    const currentSaturday = getFraisWeekStart(new Date());
+    currentSaturday.setHours(0, 0, 0, 0);
+    const selectedSaturdayCopy = new Date(selectedWeekStart);
+    selectedSaturdayCopy.setHours(0, 0, 0, 0);
+    return currentSaturday.getTime() === selectedSaturdayCopy.getTime();
   })();
   const isToday = selectedDate.toDateString() === new Date().toDateString();
   
@@ -836,11 +828,11 @@ const Finance = () => {
       // Jour sélectionné
       const selectedDayStr = formatLocalDate(selectedDate);
       
-      // Semaine sélectionnée (dimanche au samedi = 7 jours)
+      // Semaine sélectionnée (samedi au vendredi = 7 jours)
       const weekStart = new Date(selectedWeekStart);
       weekStart.setHours(0, 0, 0, 0);
       const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 6); // Dimanche + 6 jours = Samedi
+      weekEnd.setDate(weekStart.getDate() + 6); // Samedi + 6 jours = Vendredi
       const weekStartStr = formatLocalDate(weekStart);
       const weekEndStr = formatLocalDate(weekEnd);
 
