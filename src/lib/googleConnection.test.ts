@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { UNIFIED_GOOGLE_SCOPES, googleReturnUri, googleServices, validGoogleState } from "../../supabase/functions/_shared/googleOAuthPolicy";
 

@@ -1,5 +1,6 @@
 # Roadmap
-- [ ] Connexion Google unique Gmail + Drive + Agenda : autorisation, statut et envois
+- [x] Connexion Google unique Gmail + Drive + Agenda : bouton, autorisation commune, statut et envois reliés ; 12 tests réussis
+- [ ] Consentement Google réel et transfert : bloqués par l’ajout de l’URI personnalisée dans Google Cloud et l’autorisation de l’utilisateur
 - [x] CRM en mode sombre + flou du CRM (voile de confidentialité, message désormais visible)
 - [x] Page d'essai gratuit : teal & sable, lisible en sombre
 - [x] Page de paiement menant aux tarifs (/paiement)
