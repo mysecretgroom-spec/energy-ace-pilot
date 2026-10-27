@@ -2535,6 +2535,66 @@ export type Database = {
           },
         ]
       }
+      google_oauth_connections: {
+        Row: {
+          access_token_ciphertext: string
+          email: string | null
+          expires_at: string
+          reconnect_required: boolean
+          refresh_token_ciphertext: string
+          root_folder_id: string | null
+          scopes: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token_ciphertext: string
+          email?: string | null
+          expires_at: string
+          reconnect_required?: boolean
+          refresh_token_ciphertext: string
+          root_folder_id?: string | null
+          scopes?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token_ciphertext?: string
+          email?: string | null
+          expires_at?: string
+          reconnect_required?: boolean
+          refresh_token_ciphertext?: string
+          root_folder_id?: string | null
+          scopes?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      google_oauth_states: {
+        Row: {
+          expires_at: string
+          redirect_uri: string
+          state_hash: string
+          user_id: string
+          verifier_ciphertext: string
+        }
+        Insert: {
+          expires_at: string
+          redirect_uri: string
+          state_hash: string
+          user_id: string
+          verifier_ciphertext: string
+        }
+        Update: {
+          expires_at?: string
+          redirect_uri?: string
+          state_hash?: string
+          user_id?: string
+          verifier_ciphertext?: string
+        }
+        Relationships: []
+      }
       google_sync_history: {
         Row: {
           completed_at: string | null

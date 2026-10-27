@@ -1,4 +1,5 @@
 # Roadmap
+- [ ] Connexion Google unique Gmail + Drive + Agenda : autorisation, statut et envois
 - [x] CRM en mode sombre + flou du CRM (voile de confidentialité, message désormais visible)
 - [x] Page d'essai gratuit : teal & sable, lisible en sombre
 - [x] Page de paiement menant aux tarifs (/paiement)
