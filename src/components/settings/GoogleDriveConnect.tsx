@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { connectGoogleAccount, callGoogleAccount } from "@/lib/googleConnection";
 import { CloudUpload, Loader2, Unplug } from "lucide-react";
 
 type Status = { connected: boolean; email?: string | null; reconnectRequired?: boolean };
@@ -29,8 +30,10 @@ export function GoogleDriveConnect({ onSynced }: { onSynced?: () => void }) {
   const connect = async () => {
     setBusy("connect");
     try {
-      const { authorizationUrl } = await callDrive<{ authorizationUrl: string }>({ action: "start", origin: window.location.origin });
-      window.location.assign(authorizationUrl);
+      await connectGoogleAccount();
+      refresh();
+      toast.success("Gmail, Drive et Agenda connectés");
+      setBusy(null);
     } catch (e) {
       toast.error("Impossible d'ouvrir Google", { description: (e as Error).message.slice(0, 200) });
       setBusy(null);
@@ -58,18 +61,18 @@ export function GoogleDriveConnect({ onSynced }: { onSynced?: () => void }) {
 
   const disconnect = async () => {
     setBusy("disconnect");
-    try { setStatus(await callDrive<Status>({ action: "disconnect" })); } finally { setBusy(null); }
+    try { setStatus(await callGoogleAccount<Status>({ action: "disconnect" })); window.dispatchEvent(new Event("google-connection-changed")); } catch (e) { toast.error((e as Error).message); } finally { setBusy(null); }
   };
 
   return (
     <Card className="shadow-card">
       <CardHeader>
-        <CardTitle className="text-lg">Mon Google Drive</CardTitle>
+        <CardTitle className="text-lg">Google · Gmail, Drive et Agenda</CardTitle>
         <CardDescription>
           {status === null ? "Vérification…"
             : status.connected ? `Relié à ${status.email ?? "ton compte Google"}. Les fichiers vont dans le dossier DébalePro, un sous-dossier par client.`
             : status.reconnectRequired ? "L'accès a expiré, reconnecte ton compte."
-            : "Relie ton compte Google pour y envoyer tes documents, photos WhatsApp et études."}
+            : "Gmail, Drive et Agenda : un seul compte Google."}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
@@ -86,7 +89,7 @@ export function GoogleDriveConnect({ onSynced }: { onSynced?: () => void }) {
         ) : (
           <Button onClick={connect} disabled={!!busy || status === null}>
             {busy === "connect" && <Loader2 className="h-5 w-5 animate-spin" />}
-            {status?.reconnectRequired ? "Reconnecter Google Drive" : "Connecter Google Drive"}
+            {status?.reconnectRequired ? "Reconnecter Google" : "Connecter Google"}
           </Button>
         )}
       </CardContent>

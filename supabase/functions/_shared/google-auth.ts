@@ -1,3 +1,4 @@
+import { getUnifiedGoogleConnection, getUnifiedGoogleToken } from "./googleUnified.ts";
 // Shared Google OAuth utilities for Edge Functions
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
@@ -82,6 +83,8 @@ export async function refreshGoogleToken(refreshToken: string): Promise<{ access
 // Get valid Google access token (refresh if needed)
 // First tries the google_tokens table, then falls back to Supabase Auth identities
 export async function getValidAccessToken(userId: string): Promise<string | null> {
+  const unified = await getUnifiedGoogleConnection(userId);
+  if (unified) return getUnifiedGoogleToken(userId);
   const supabase = createAdminClient();
   
   // First, try to get tokens from our custom table
