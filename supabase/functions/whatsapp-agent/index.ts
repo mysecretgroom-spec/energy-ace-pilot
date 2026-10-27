@@ -11865,10 +11865,10 @@ async function executeAction(
           periodLabel = "Aujourd'hui";
           break;
         case "week":
-          // Sunday-Saturday (Israeli style)
+          // Semaine de frais : samedi au vendredi
           const dayOfWeekF = now.getDay(); // 0=dimanche
           startDate = new Date(now);
-          startDate.setDate(now.getDate() - dayOfWeekF);
+          startDate.setDate(now.getDate() - (dayOfWeekF >= 6 ? dayOfWeekF - 6 : dayOfWeekF + 1));
           startDate.setHours(0, 0, 0, 0);
           periodLabel = "Cette semaine";
           break;
@@ -11976,10 +11976,10 @@ async function executeAction(
           periodLabel = "Aujourd'hui";
           break;
         case "week":
-          // Sunday-Saturday (Israeli style)
+          // Semaine de frais : samedi au vendredi
           const dayOfWeekD = now.getDay(); // 0=dimanche
           startDate = new Date(now);
-          startDate.setDate(now.getDate() - dayOfWeekD);
+          startDate.setDate(now.getDate() - (dayOfWeekD >= 6 ? dayOfWeekD - 6 : dayOfWeekD + 1));
           startDate.setHours(0, 0, 0, 0);
           periodLabel = "Cette semaine";
           break;
