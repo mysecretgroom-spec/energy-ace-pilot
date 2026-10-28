@@ -121,7 +121,7 @@ export function RegieConfigStep({ onComplete }: RegieConfigStepProps) {
           placeholder="Ex: ABC Énergie"
           value={formData.nom}
           onChange={(e) => setFormData((s) => ({ ...s, nom: e.target.value }))}
-          className="h-9 text-sm"
+          className="h-11"
         />
       </div>
 
@@ -135,7 +135,7 @@ export function RegieConfigStep({ onComplete }: RegieConfigStepProps) {
           placeholder="Ex: Lyon"
           value={formData.ville}
           onChange={(e) => setFormData((s) => ({ ...s, ville: e.target.value }))}
-          className="h-9 text-sm"
+          className="h-11"
         />
       </div>
 
