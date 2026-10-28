@@ -136,7 +136,7 @@ export function SecurityConfigStep({ onComplete }: SecurityConfigStepProps) {
           value={digit}
           onChange={(e) => handlePinChange(pin, setPinFn, i, e.target.value)}
           onKeyDown={(e) => handleKeyDown(i, e, pin, setPinFn)}
-          className={`w-10 h-10 text-center text-lg font-bold ${
+          className={`w-11 h-11 text-center text-lg font-bold ${
             error ? "border-destructive" : ""
           }`}
         />

@@ -436,7 +436,7 @@ function OnboardingOverlay() {
 
   return (
     <AnimatePresence mode="wait">
-      <div className="fixed inset-0 z-[100] pointer-events-none">
+      <div className="fixed inset-0 z-[100] pointer-events-none flex items-center justify-center px-4 pt-4 pb-14">
         {/* Dark overlay */}
         <motion.div
           initial={{ opacity: 0 }}
@@ -454,9 +454,8 @@ function OnboardingOverlay() {
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
           className={cn(
             "pointer-events-auto bg-card border border-border rounded-2xl shadow-2xl overflow-hidden",
-            "fixed inset-x-4 top-1/2 -translate-y-1/2",
-            "sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-[400px] sm:max-w-[90vw]",
-            "max-h-[85vh] overflow-y-auto"
+            "w-full max-w-[400px] mx-auto",
+            "max-h-[76dvh] overflow-y-auto overscroll-contain"
           )}
         >
           {/* Header gradient */}
@@ -575,36 +574,37 @@ function OnboardingOverlay() {
 
             {/* Navigation - Only for presentation steps */}
             {isPresentation && (
-              <div className="flex items-center justify-between gap-2">
-                <div>
+              <div className="flex flex-wrap items-center justify-between gap-1.5">
+                <div className="min-w-0">
                   {currentStepIndex > 0 && (
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={previous}
-                      className="h-9 px-3 touch-manipulation"
+                      className="h-9 px-2.5 touch-manipulation"
                     >
-                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      <ChevronLeft className="h-4 w-4 mr-0.5" />
                       Retour
                     </Button>
                   )}
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5">
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={skipPresentation}
-                    className="h-9 px-3 text-muted-foreground touch-manipulation gap-1"
+                    className="h-9 px-2.5 text-muted-foreground touch-manipulation gap-1"
                   >
                     <SkipForward className="h-3.5 w-3.5" />
-                    Passer l'intro
+                    <span className="sm:hidden">Passer</span>
+                    <span className="hidden sm:inline">Passer l'intro</span>
                   </Button>
 
                   <Button
                     size="sm"
                     onClick={next}
-                    className="h-9 px-4 gap-1 touch-manipulation active:scale-95 transition-transform"
+                    className="h-9 px-3.5 gap-1 touch-manipulation active:scale-95 transition-transform"
                   >
                     Continuer
                     <ChevronRight className="h-4 w-4" />
