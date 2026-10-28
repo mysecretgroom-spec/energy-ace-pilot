@@ -49,6 +49,8 @@ body {
 /* DébalePro Design System - Corporate Professional */
 @layer base {
   :root {
+    --action-icon-max: 20px;
+    --navigation-icon-size: 22px;
     /* Ardoise froide très claire */
     --background: 40 33% 96%;
     --foreground: 184 38% 14%;
@@ -262,6 +264,14 @@ body {
   [role="button"]:not(.touch-compact) {
     min-height: 44px;
     min-width: 44px;
+  }
+
+  /* Keep action glyphs compact independently of their touch targets.
+     Small inline indicators and non-interactive illustrations retain their size. */
+  :is(button, a, [role="button"], [role="tab"], [role="menuitem"]) svg.lucide {
+    max-width: var(--action-icon-max);
+    max-height: var(--action-icon-max);
+    flex-shrink: 0;
   }
 
   /* Touch-optimized interactive elements */
