@@ -17,4 +17,4 @@
 - [ ] Stockage Google Drive de chaque utilisateur — en attente : config Google (URI, API Drive, publication)
 - [x] Audit textes/polices/alignements : 76 pages clair + sombre (admin non vérifiable : code MFA)
 - [x] Vue « Envois Google Drive » (Paramètres) — se remplira quand l’envoi Drive sera branché
-- [ ] Vérifier les formats d'affichage des pop-ups et du wizard d'onboarding (tailles, padding, débordements)
+- [x] Vérifier les formats d'affichage des pop-ups et du wizard d'onboarding (tailles, padding, débordements)
