@@ -1,4 +1,5 @@
 # Roadmap
+- [ ] Harmoniser les textes et boutons aux proportions compactes des applications traditionnelles.
 - [x] Agenda Google dans Planning : synchronisation à l’ouverture puis toutes les 15 minutes, reprise au retour du réseau/premier plan, sans alertes automatiques.
 - [x] Connexion Google unique Gmail + Drive + Agenda : bouton, autorisation commune, statut et envois reliés ; 12 tests réussis
 - [ ] Consentement Google réel et transfert : bloqués par l’ajout de l’URI personnalisée dans Google Cloud et l’autorisation de l’utilisateur
