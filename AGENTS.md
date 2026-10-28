@@ -1,4 +1,5 @@
 # Architecture rules
+- Action icon size is bounded in global CSS independently of touch targets, with shared Button and navigation sizing; decorative graphics are excluded to preserve media and illustrations.
 - Planning owns its foreground Google Calendar auto-sync scheduler; reuse the authenticated sync hook, refresh visible RDVs after success, and never run parallel manual/automatic imports.
 - Native iOS/Android builds use Capacitor with the shared React bundle (android/ and ios/ committed); the sandbox hot-reload server.url in capacitor.config.ts must be removed before any store-bound build so the app loads its bundled dist.
 - MCP uses SDK-generated transport, OAuth caller tokens and own-user RLS; WebMCP reads visible data only. Canonical OAuth return paths preserve consent through all sign-in methods to avoid lost consent and open redirects.

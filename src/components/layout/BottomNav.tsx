@@ -26,7 +26,7 @@ export const BottomNav = React.forwardRef<HTMLElement, React.HTMLAttributes<HTML
     return (
       <nav
         ref={ref}
-        className="fixed bottom-0 left-0 right-0 z-[60] bg-card border-t rounded-none safe-bottom will-change-transform"
+        className="fixed bottom-0 left-0 right-0 z-[60] bg-card border-t rounded-none safe-bottom will-change-transform [--action-icon-max:var(--navigation-icon-size)]"
         style={{ transform: "translateZ(0)" }}
         {...props}
       >
@@ -41,6 +41,8 @@ export const BottomNav = React.forwardRef<HTMLElement, React.HTMLAttributes<HTML
               <Link
                 key={path}
                 to={path}
+                aria-label={label}
+                title={label}
                 onMouseEnter={() => prefetch(path)}
                 onTouchStart={() => prefetch(path)}
                 className={cn(
@@ -58,12 +60,12 @@ export const BottomNav = React.forwardRef<HTMLElement, React.HTMLAttributes<HTML
                   )}
                 />
                 <Icon
-                  className="h-6 w-6"
-                  strokeWidth={isActive ? 2.25 : 1.75}
+                  className="h-[var(--navigation-icon-size)] w-[var(--navigation-icon-size)]"
+                  strokeWidth={isActive ? 2 : 1.75}
                 />
                 <span
                   className={cn(
-                    "text-xs font-semibold leading-none",
+                    "sr-only",
                     !isActive && "font-medium"
                   )}
                 >
