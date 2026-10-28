@@ -17,6 +17,16 @@ export default {
       },
     },
     extend: {
+      fontSize: {
+        base: ['15px', { lineHeight: '1.5' }],
+        lg: ['18px', { lineHeight: '1.4' }],
+        xl: ['20px', { lineHeight: '1.35' }],
+        '2xl': ['24px', { lineHeight: '1.3' }],
+      },
+      letterSpacing: {
+        tighter: '0',
+        tight: '0',
+      },
       fontFamily: {
         sans: ['Plus Jakarta Sans', 'system-ui', '-apple-system', 'sans-serif'],
         display: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],

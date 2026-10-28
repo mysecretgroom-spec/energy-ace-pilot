@@ -207,7 +207,7 @@ body {
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-    font-size: 16px;
+    font-size: 15px;
     line-height: 1.5;
     letter-spacing: 0;
   }
@@ -215,17 +215,17 @@ body {
   /* Compact professional typography hierarchy */
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
-    letter-spacing: -0.02em;
+    letter-spacing: 0;
     font-weight: 600;
   }
 
   h1 {
-    @apply text-2xl sm:text-3xl font-bold;
-    letter-spacing: -0.025em;
+    @apply text-2xl font-semibold;
+    letter-spacing: 0;
   }
 
   h2 {
-    @apply text-xl sm:text-2xl font-semibold;
+    @apply text-xl font-semibold;
   }
 
   h3 {
