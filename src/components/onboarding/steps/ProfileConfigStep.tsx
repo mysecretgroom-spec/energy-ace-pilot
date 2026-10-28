@@ -100,7 +100,7 @@ export function ProfileConfigStep({ onComplete }: ProfileConfigStepProps) {
             placeholder="Jean"
             value={formData.first_name}
             onChange={(e) => setFormData((s) => ({ ...s, first_name: e.target.value }))}
-            className="h-9 text-sm"
+            className="h-11"
           />
         </div>
         <div className="space-y-1.5">
@@ -112,7 +112,7 @@ export function ProfileConfigStep({ onComplete }: ProfileConfigStepProps) {
             placeholder="Durand"
             value={formData.last_name}
             onChange={(e) => setFormData((s) => ({ ...s, last_name: e.target.value }))}
-            className="h-9 text-sm"
+            className="h-11"
           />
         </div>
       </div>
@@ -128,7 +128,7 @@ export function ProfileConfigStep({ onComplete }: ProfileConfigStepProps) {
           placeholder="06 12 34 56 78"
           value={formData.phone}
           onChange={(e) => setFormData((s) => ({ ...s, phone: e.target.value }))}
-          className="h-9 text-sm"
+          className="h-11"
         />
         <p className="text-xs text-muted-foreground">
           Utilisé pour l'agent WhatsApp et les notifications

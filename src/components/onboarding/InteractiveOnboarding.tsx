@@ -436,7 +436,7 @@ function OnboardingOverlay() {
 
   return (
     <AnimatePresence mode="wait">
-      <div className="fixed inset-0 z-[100] pointer-events-none">
+      <div className="fixed inset-0 z-[100] pointer-events-none flex items-center justify-center px-4 pt-4 pb-14">
         {/* Dark overlay */}
         <motion.div
           initial={{ opacity: 0 }}
@@ -454,9 +454,8 @@ function OnboardingOverlay() {
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
           className={cn(
             "pointer-events-auto bg-card border border-border rounded-2xl shadow-2xl overflow-hidden",
-            "fixed inset-x-4 top-1/2 -translate-y-1/2",
-            "sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-[400px] sm:max-w-[90vw]",
-            "max-h-[85vh] overflow-y-auto"
+            "w-full max-w-[400px] mx-auto",
+            "max-h-[76dvh] overflow-y-auto overscroll-contain"
           )}
         >
           {/* Header gradient */}
