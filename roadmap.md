@@ -1,5 +1,6 @@
 # Roadmap
 - [ ] Refaire les trois vidéos Julien avec Claude/Hyperframe demandé : 9:16, voix off française, musique et animations ; vérifier le moteur réellement utilisé et les rendus.
+  - Récapitulatif rendu avec Hyperframes, 37 s, 1080×1920 et audio confirmés ; 12 images contrôlées par l’agent. Interactions simulées, commentaire/envoi illustrés, Julien non articulé ; écoute et dernier contrôle automatique non effectués. Planning et finances en attente des agents.
 - [x] Trois brouillons vidéo Julien avec brag-slim : Planning/GPS, récapitulatif signé, commissions/frais ; vidéos, affiches et textes regroupés. Images et niveaux audio contrôlés ; lecture continue et écoute non vérifiées, petit masquage Google Maps sur l'affiche Planning.
 - [x] Présentation : parcours animé droite/bas/gauche réversible, navigation directe ; vérifié sur 390, 816 et 1280 px, avec affichage statique en réduction des animations.
 - [x] Harmoniser les textes et boutons via les réglages communs ; Planning, CRM, Finance et Paramètres vérifiés sans débordement.
