@@ -1,5 +1,5 @@
 # Roadmap
-- [ ] Présentation : parcours animé droite/bas/gauche, navigation directe et retour au scroll ; vérifier affichage et réduction des animations.
+- [x] Présentation : parcours animé droite/bas/gauche réversible, navigation directe ; vérifié sur 390, 816 et 1280 px, avec affichage statique en réduction des animations.
 - [x] Harmoniser les textes et boutons via les réglages communs ; Planning, CRM, Finance et Paramètres vérifiés sans débordement.
 - [x] Agenda Google dans Planning : synchronisation à l’ouverture puis toutes les 15 minutes, reprise au retour du réseau/premier plan, sans alertes automatiques.
 - [x] Connexion Google unique Gmail + Drive + Agenda : bouton, autorisation commune, statut et envois reliés ; 12 tests réussis
