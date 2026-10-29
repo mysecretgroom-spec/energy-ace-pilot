@@ -120,7 +120,7 @@ export default function Accueil() {
                 initial={{ opacity: 0, x: reduce ? 0 : 30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: reduce ? 0 : 0.8, delay: 0.35 }}>
                 <Phone src={shotWhatsapp} alt="Assistant WhatsApp" />
               </motion.div>
-              <motion.div style={{ y: yFront }} className="absolute left-1/2 top-0 w-[50%] -translate-x-1/2 z-10"
+              <motion.div style={{ y: yFront }} className="absolute left-[25%] top-0 w-[50%] z-10"
                 initial={{ opacity: 0, y: reduce ? 0 : 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reduce ? 0 : 0.8, delay: 0.1 }}>
                 <Phone src={shotEtudes} alt="Étude énergétique combinée" />
               </motion.div>
