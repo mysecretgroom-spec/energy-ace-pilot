@@ -221,6 +221,11 @@ const App = () => {
                       <Route path="/legal" element={<Legal />} />
                       <Route path="/cgv" element={<CGV />} />
                       <Route path="/remboursement" element={<Remboursement />} />
+                      <Route path="/mentions-legales" element={<Navigate to="/legal" replace />} />
+                      <Route path="/conditions-generales" element={<Navigate to="/cgv" replace />} />
+                      <Route path="/politique-de-confidentialite" element={<Navigate to="/confidentialite" replace />} />
+                      <Route path="/privacy" element={<Navigate to="/confidentialite" replace />} />
+                      <Route path="/refund" element={<Navigate to="/remboursement" replace />} />
                       <Route path="/securite" element={<SecurityPolicy />} />
                       <Route path="/data-retention" element={<DataRetention />} />
                       <Route path="/abonnement" element={<ProtectedRoute><Abonnement /></ProtectedRoute>} />
