@@ -1,4 +1,5 @@
 # Architecture rules
+- Landing feature motion uses a sticky two-axis canvas driven by native document scroll, with direct section navigation and a static reduced-motion fallback; never intercept wheel or touch scrolling.
 - Action icon size is bounded in global CSS independently of touch targets, with shared Button and navigation sizing; decorative graphics are excluded to preserve media and illustrations.
 - Shared controls and Tailwind typography define app-wide compact proportions; editable input text stays at 16px to avoid iOS focus zoom, and touch targets remain independent of text size.
 - Planning owns its foreground Google Calendar auto-sync scheduler; reuse the authenticated sync hook, refresh visible RDVs after success, and never run parallel manual/automatic imports.
