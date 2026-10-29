@@ -9,6 +9,7 @@ import shotEtudes from "@/assets/capture-etudes.jpg";
 import shotScanner from "@/assets/capture-scanner.jpg";
 import shotWhatsapp from "@/assets/capture-whatsapp.jpg";
 import shotOffline from "@/assets/capture-hors-ligne.jpg";
+import { ScrollJourney } from "@/components/landing/ScrollJourney";
 
 const FEATURES = [
   {
@@ -73,7 +74,7 @@ export default function Accueil() {
   const stagger = { hidden: {}, visible: { transition: { staggerChildren: reduce ? 0 : 0.1 } } };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col overflow-x-hidden">
+    <div className="min-h-screen bg-background flex flex-col overflow-x-clip">
       <header className="border-b border-border/70 sticky top-0 bg-background/85 backdrop-blur-md z-20">
         <div className="max-w-6xl mx-auto flex items-center justify-between h-14 px-4">
           <span className="font-display font-bold text-foreground">Débale<span className="text-primary">Pro</span></span>
@@ -156,46 +157,12 @@ export default function Accueil() {
           </motion.div>
         </section>
 
-        {/* FONCTIONNALITÉS en zigzag */}
-        <section id="fonctionnalites" className="bg-muted/30">
-          <div className="max-w-6xl mx-auto px-4 py-20 md:py-24 space-y-20 md:space-y-28">
-            <motion.div className="text-center space-y-3 max-w-2xl mx-auto" variants={reveal} initial="hidden" whileInView="visible" viewport={{ once: true }}>
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">Fonctionnalités</p>
-              <h2 className="font-display text-3xl md:text-4xl font-bold tracking-[-0.02em]">Tout le rendez-vous, dans votre poche</h2>
-              <p className="text-muted-foreground">Quatre outils pensés pour le terrain, qui travaillent ensemble.</p>
-            </motion.div>
-
-            {FEATURES.map(({ icon: Icon, tag, title, text, points, img, alt }, i) => (
-              <motion.article key={title} className="grid gap-10 md:grid-cols-2 md:items-center"
-                variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.25 }}>
-                <motion.div variants={reveal} className={`space-y-4 ${i % 2 ? "md:order-2" : ""}`}>
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center"><Icon className="h-5 w-5" /></div>
-                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">{tag}</span>
-                  </div>
-                  <h3 className="font-display text-2xl md:text-3xl font-bold tracking-[-0.02em]">{title}</h3>
-                  <p className="text-muted-foreground leading-7">{text}</p>
-                  <ul className="space-y-2 text-sm">
-                    {points.map((p) => (
-                      <li key={p} className="flex gap-2.5 items-start">
-                        <span className="mt-0.5 h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0"><Check className="h-3 w-3 text-primary" /></span>{p}
-                      </li>
-                    ))}
-                  </ul>
-                </motion.div>
-                <motion.div variants={reveal} className={`relative flex justify-center ${i % 2 ? "md:order-1" : ""}`}>
-                  <div aria-hidden className="absolute inset-x-8 inset-y-6 rounded-[2.5rem] bg-gradient-to-br from-primary/20 via-secondary to-transparent blur-2xl" />
-                  <div className="relative rounded-[2.5rem] border bg-card/60 p-6 md:p-8">
-                    <Phone src={img} alt={alt} className="w-48 md:w-56" />
-                  </div>
-                </motion.div>
-              </motion.article>
-            ))}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
+        <ScrollJourney features={FEATURES} />
+        <section className="border-t px-4 py-10">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <Button asChild size="lg"><Link to="/essai-gratuit">Essayer 10 jours gratuits <ArrowRight className="h-4 w-4" /></Link></Button>
               <Button asChild size="lg" variant="ghost"><a href="#tarifs">Voir les tarifs</a></Button>
             </div>
-          </div>
         </section>
 
         <section className="border-t">
