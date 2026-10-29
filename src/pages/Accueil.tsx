@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
-import { ClipboardList, ScanLine, MessageCircle, WifiOff, Check, ArrowRight } from "lucide-react";
+import { ClipboardList, ScanLine, MessageCircle, WifiOff, Check, ArrowRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Footer } from "@/components/layout/Footer";
 import Tarifs from "@/pages/Tarifs";
@@ -41,6 +41,13 @@ const STEPS = [
   { n: "01", t: "Étude guidée", d: "Saisie au fil de la visite, calculs automatiques." },
   { n: "02", t: "Pièces scannées", d: "Documents du client ajoutés au dossier." },
   { n: "03", t: "Récap envoyé", d: "PDF et récapitulatif partent à la régie." },
+];
+
+const FAQ = [
+  { q: "Comment fonctionne l'essai gratuit ?", a: "Vous profitez de l'application pendant 10 jours, sans engagement. Vous choisissez ensuite votre formule depuis la page Tarifs." },
+  { q: "Puis-je tester sans créer de compte ?", a: "Oui, le mode visiteur ouvre une démonstration avec des données fictives : études, planning et CRM, en lecture seule." },
+  { q: "Que se passe-t-il sans réseau chez le client ?", a: "Le planning, les fiches et les études de la semaine restent disponibles. Vos saisies sont enregistrées sur l'appareil puis synchronisées au retour du réseau." },
+  { q: "Sur quels appareils l'utiliser ?", a: "Sur téléphone, tablette et ordinateur, depuis le navigateur. L'application s'installe aussi sur l'écran d'accueil du téléphone." },
 ];
 
 function Phone({ src, alt, className = "" }: { src: string; alt: string; className?: string }) {
@@ -100,7 +107,7 @@ export default function Accueil() {
               <motion.p variants={reveal} className="text-lg leading-8 text-muted-foreground max-w-xl">
                 Études, scanner, planning et récap WhatsApp réunis dans une seule application, même sans réseau.
               </motion.p>
-              <motion.div variants={reveal} className="flex flex-wrap gap-3">
+              <motion.div variants={reveal} className="flex flex-col sm:flex-row gap-3 [&>*]:w-full sm:[&>*]:w-auto">
                 <Button asChild size="lg"><Link to="/essai-gratuit">Essayer 10 jours gratuits <ArrowRight className="h-4 w-4" /></Link></Button>
                 <VisitorButton size="lg" variant="outline" />
               </motion.div>
@@ -111,14 +118,14 @@ export default function Accueil() {
               </motion.ul>
             </motion.div>
 
-            <div className="relative mx-auto h-[26rem] w-full max-w-md md:h-[34rem]">
-              <motion.div style={{ y: yBack }} className="absolute left-0 top-10 w-[42%] -rotate-6"
+            <div className="relative mx-auto h-[30rem] w-full max-w-sm sm:max-w-md md:h-[34rem]">
+              <motion.div style={{ y: yBack }} className="absolute left-0 top-10 w-[42%]"
                 initial={{ opacity: 0, x: reduce ? 0 : -30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: reduce ? 0 : 0.8, delay: 0.25 }}>
-                <Phone src={shotScanner} alt="Scanner de documents" />
+                <Phone src={shotScanner} alt="Scanner de documents" className="-rotate-6" />
               </motion.div>
-              <motion.div style={{ y: yBack }} className="absolute right-0 top-10 w-[42%] rotate-6"
+              <motion.div style={{ y: yBack }} className="absolute right-0 top-10 w-[42%]"
                 initial={{ opacity: 0, x: reduce ? 0 : 30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: reduce ? 0 : 0.8, delay: 0.35 }}>
-                <Phone src={shotWhatsapp} alt="Assistant WhatsApp" />
+                <Phone src={shotWhatsapp} alt="Assistant WhatsApp" className="rotate-6" />
               </motion.div>
               <motion.div style={{ y: yFront }} className="absolute left-[25%] top-0 w-[50%] z-10"
                 initial={{ opacity: 0, y: reduce ? 0 : 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reduce ? 0 : 0.8, delay: 0.1 }}>
@@ -184,11 +191,34 @@ export default function Accueil() {
                 </motion.div>
               </motion.article>
             ))}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
+              <Button asChild size="lg"><Link to="/essai-gratuit">Essayer 10 jours gratuits <ArrowRight className="h-4 w-4" /></Link></Button>
+              <Button asChild size="lg" variant="ghost"><a href="#tarifs">Voir les tarifs</a></Button>
+            </div>
           </div>
         </section>
 
         <section className="border-t">
           <Tarifs embedded />
+        </section>
+
+        <section className="border-t">
+          <div className="max-w-3xl mx-auto px-4 py-20 space-y-8">
+            <motion.div className="text-center space-y-3" variants={reveal} initial="hidden" whileInView="visible" viewport={{ once: true }}>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">Questions fréquentes</p>
+              <h2 className="font-display text-3xl md:text-4xl font-bold tracking-[-0.02em]">Avant de commencer</h2>
+            </motion.div>
+            <motion.div className="space-y-3" variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }}>
+              {FAQ.map(({ q, a }) => (
+                <motion.details key={q} variants={reveal} className="group rounded-2xl border bg-card px-5 py-4 open:border-primary/40">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold min-h-[44px]">
+                    {q}<Plus className="h-4 w-4 shrink-0 text-primary transition-transform group-open:rotate-45" />
+                  </summary>
+                  <p className="pt-2 text-sm leading-6 text-muted-foreground">{a}</p>
+                </motion.details>
+              ))}
+            </motion.div>
+          </div>
         </section>
 
         {/* CTA final */}
