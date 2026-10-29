@@ -1,4 +1,5 @@
 # Roadmap
+- [x] Trois brouillons vidéo Julien avec brag-slim : Planning/GPS, récapitulatif signé, commissions/frais ; vidéos, affiches et textes regroupés. Images et niveaux audio contrôlés ; lecture continue et écoute non vérifiées, petit masquage Google Maps sur l'affiche Planning.
 - [x] Présentation : parcours animé droite/bas/gauche réversible, navigation directe ; vérifié sur 390, 816 et 1280 px, avec affichage statique en réduction des animations.
 - [x] Harmoniser les textes et boutons via les réglages communs ; Planning, CRM, Finance et Paramètres vérifiés sans débordement.
 - [x] Agenda Google dans Planning : synchronisation à l’ouverture puis toutes les 15 minutes, reprise au retour du réseau/premier plan, sans alertes automatiques.
