@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 export const SELLER = {
   name: "ALFRED'S AGENCY",
   trading: "DébalePro",
-  email: "contact@miweha.com",
+  email: "contact@miweha.fr",
   address: "49 rue d'Hauteville, 75010 Paris, France",
 };
 

@@ -104,8 +104,8 @@ const Legal = () => {
             <p className="text-xs text-muted-foreground">
               Documents édités par <strong>ALFRED'S AGENCY</strong>, 49 rue d'Hauteville, 75010 Paris. Pour toute question,
               contactez-nous à{" "}
-              <a href="mailto:contact@miweha.com" className="text-primary hover:underline font-medium">
-                contact@miweha.com
+              <a href="mailto:contact@miweha.fr" className="text-primary hover:underline font-medium">
+                contact@miweha.fr
               </a>
             </p>
 
