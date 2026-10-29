@@ -76,7 +76,7 @@ export function ScrollJourney({ features }: { features: Feature[] }) {
         <div className="absolute inset-x-0 bottom-16 top-14 overflow-hidden">
           <motion.div style={{ x, y }} className="absolute left-0 top-0 grid h-[200%] w-[200%] grid-cols-2 grid-rows-2 will-change-transform">
             {features.map((feature, index) => (
-              <article key={feature.title} aria-label={feature.title} inert={active !== index ? "" : undefined} className={`flex min-h-0 items-center overflow-hidden ${positions[index]} ${index % 2 ? "bg-secondary/40" : "bg-background"}`}>
+              <article key={feature.title} aria-label={feature.title} aria-hidden={active !== index} className={`flex min-h-0 items-center overflow-hidden ${positions[index]} ${index % 2 ? "bg-secondary/40" : "bg-background"}`}>
                 <FeatureScene feature={feature} index={index} />
               </article>
             ))}
